@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+<script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.js"></script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Coin Game</title>
+    <h1 id="gameScore">Score: </h1>
+    <style type="text/css">
+    </style>
+</head>
+
+<body>
+    <script>
+
+        const element = document.getElementById("gameScore")
+        var score = 0;
+        var j = 0;
+        var rotC = 0;
+        var k = 0;
+        var scene = new THREE.Scene();
+
+        
+        //setting up camera
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        const cameraWidth = 400;
+        const cameraHeight = cameraWidth / aspectRatio;
+        console.log("innerWidth: "+ window.innerWidth + " innerHeight: "+ window.innerHeight);
+        const camera = new THREE.OrthographicCamera(cameraWidth / -2, cameraWidth / 2, cameraHeight / 2, cameraHeight / -2, 0, 5000);
+        camera.position.set(3200, 400, 800);
+        camera.lookAt(0, 0, 0);
+
+        //light source to shine in every direction
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+
+        scene.add(ambientLight);
+
+        //creates directional light 
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(2000, 500, 3000);
+        directionalLight.castShadow = true;
+
+        scene.add(directionalLight);
+
+        const helper = new THREE.CameraHelper(camera)
+        scene.add(helper)
+
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.render(scene, camera);
+
+        //functions to create group to make car
+        //creates wheels for car. front and back
+        function createWheels() {
+            const geometry = new THREE.BoxBufferGeometry(12, 12, 33);
+            const material = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const wheel = new THREE.Mesh(geometry, material);
+            return wheel;
+        }
+        //creates a car group
+        function createCar() {
+            const car = new THREE.Group();
+            //creates backwheel of car. same as front wheel just different x and y coordinates
+            const backWheel = createWheels();
+            backWheel.position.y = 6;
+            backWheel.position.x = -18;
+            car.add(backWheel);
+            //creates front wheel for car
+            const frontWheel = createWheels();
+            frontWheel.position.y = 6;
+            frontWheel.position.x = 18;
+            car.add(frontWheel);
+            //the body of the car
+            const main = new THREE.Mesh(
+                new THREE.BoxBufferGeometry(60, 15, 30),
+                new THREE.MeshLambertMaterial({ color: 0x78b14b })
+            );
+            main.position.y = 12;
+            //adds main to the car group
+            car.add(main);
+
+            //adds the different textures for the car
+            const carFrontTexture = getCarFrontTexture();
+
+            const carBackTexture = getCarFrontTexture();
+
+            const carRightSideTexture = getCarSideTexture();
+
+            const carLeftSideTexture = getCarSideTexture();
+            //orientates the textures so they line up with the car
+            carLeftSideTexture.center = new THREE.Vector2(0.5, 0.5);
+            carLeftSideTexture.rotation = Math.PI;
+            carLeftSideTexture.flipY = false;
+
+
+            //cabin of the car. the top part
+            const cabin = new THREE.Mesh(new THREE.BoxBufferGeometry(33, 12, 24), [
+                new THREE.MeshLambertMaterial({ map: carFrontTexture }),
+                new THREE.MeshLambertMaterial({ map: carBackTexture }),
+                new THREE.MeshLambertMaterial({ color: 0xffffff }), // top
+                new THREE.MeshLambertMaterial({ color: 0xffffff }), // bottom
+                new THREE.MeshLambertMaterial({ map: carRightSideTexture }),
+                new THREE.MeshLambertMaterial({ map: carLeftSideTexture }),
+            ]);
+            cabin.position.x = -6;
+            cabin.position.y = 25.5;
+            car.add(cabin);
+
+            return car;
+        }
+        //functions for car's front texture
+        function getCarFrontTexture() {
+            const canvas = document.createElement("canvas");
+            canvas.width = 64;
+            canvas.height = 32;
+            const context = canvas.getContext("2d");
+
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, 64, 32);
+
+            context.fillStyle = "#666666";
+            context.fillRect(8, 8, 48, 24);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+        //function to get the textures on the side of the car
+        function getCarSideTexture() {
+            const canvas = document.createElement("canvas");
+            canvas.width = 128;
+            canvas.height = 32;
+            const context = canvas.getContext("2d");
+
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, 128, 32);
+
+            context.fillStyle = "#666666";
+            context.fillRect(10, 8, 38, 24);
+            context.fillRect(58, 8, 60, 24);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+        //creates the car object 
+        const car = createCar();
+      
+        scene.add(car);
+
+        //creating the road for the car
+        const roadText = roadTexture();
+        const roadGeo = new THREE.BoxGeometry(120000, 10, 360);
+        const roadMat = new THREE.MeshLambertMaterial({ color: "grey" });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+
+        //creating the white dashed lines along the road
+        function repeatLines(xPos, zPos) {
+
+            const rtGeo = new THREE.BoxGeometry(50, 1, 10)
+            const rtMat = new THREE.MeshLambertMaterial({ color: "white" });
+            const roadTextures = new THREE.Mesh(rtGeo, rtMat)
+            roadTextures.rotateY(-Math.PI * 1);
+            roadTextures.position.y = 5;
+            roadTextures.position.x = xPos;
+            roadTextures.position.z = zPos;
+            scene.add(roadTextures);
+        }
+        lineXPos = 400;
+        //for loop to create dashed lines along the road
+        for (i = 0; i < 100000; i = i + 50) {
+
+            repeatLines(lineXPos, 60);
+            repeatLines(lineXPos, -60);
+            lineXPos = lineXPos - 100;
+            console.log("for statement")
+        }
+
+        //orientates the road to make it flat
+        road.rotateY(-Math.PI * 1)
+
+        scene.add(road)
+
+        //creating the paths on either side of the road. the "grass on either side"
+        const pathGeo = new THREE.BoxGeometry(130000, 10, 200)
+        const pathMat = new THREE.MeshLambertMaterial({ color: "green" });
+        const pathLeft = new THREE.Mesh(pathGeo, pathMat)
+        const pathRight = new THREE.Mesh(pathGeo, pathMat)
+        pathRight.position.z = -280;
+        pathLeft.position.z = 280;
+        pathLeft.rotateY(-Math.PI * 1)
+        pathRight.rotateY(-Math.PI * 1)
+        scene.add(pathLeft, pathRight)
+
+        console.log("road x" + road.position.x)
+
+
+        function roadTexture(mapWidth, mapHeight) {
+            const canvas = document.createElement("canvas");
+            canvas.width = mapWidth;
+            canvas.height = mapHeight;
+            const context = canvas.getContext("2d");
+            context.fillStyle = "#666666";
+            context.fillRect(-5, -5, 100, 100);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+        //creating a coin object
+        class Coin {
+            constructor(coinX, coinY, coinZ) {
+                this.coinGeo = new THREE.CylinderGeometry(15, 15, 2, 20, 20, false);
+                this.coinMat = new THREE.MeshLambertMaterial({ color: "yellow" });
+                this.coin = new THREE.Mesh(this.coinGeo, this.coinMat);
+
+                this.coin.position.x = coinX;
+                this.coin.position.y = coinY;
+                this.coin.position.z = coinZ;
+                this.coin.rotation.x = (Math.PI * 0.5);
+                this.coin.castShadow = true;
+                this.coin.recieveShadow = true;
+            }
+        }
+
+        //creating a wall object
+        class Wall {
+            constructor(wallX, wallY, wallZ) {
+                this.wallGeo = new THREE.BoxGeometry(120, 80, 10);
+                this.wallMaterial = new THREE.MeshLambertMaterial({ color: "green" });
+                this.wall = new THREE.Mesh(this.wallGeo, this.wallMaterial);
+                this.boundingBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+                this.boundingBox.setFromObject(this.wall);
+                this.wall.position.x = wallX;
+                this.wall.position.y = wallY;
+                this.wall.position.z = wallZ;
+                this.wall.rotation.y = (Math.PI * .5);
+            }
+        }
+        //array of objects to repeat throughout game
+        let wallArray = [];
+        let coinArray = [];
+
+        //parameters for the coin constructor
+        var cX = -800;
+        var cY = 30;
+        var cZ;
+        var coinZ;
+        //parameters for the wall constructor
+        var wX = -1000;
+        var wY = 40;
+        var wZ = -120;
+        var wallSide = 1;
+
+
+        for (i = 0; i < 2000; i++) {
+            //line of code to decide where the wall is going to be set
+            var decW = Math.floor(Math.random() * 3);
+
+            console.log(decW)
+            if (decW == 1) {
+                wZ = 120;
+            } else if (decW == 2) {
+                wZ = 0;
+            } else if (decW == 3) {
+                wZ = -120;
+            }
+            //decides a random point on the road to place coin
+            var decC = Math.floor(Math.random() * 180);
+            console.log("DEC " + decC)
+            if (decC < 90) {
+                cZ = decC * -1;
+                console.log("CZ " + cZ);
+            } else {
+                cZ = decC;
+            }
+            var w1 = new Wall(wX, wY, wZ);
+            var c1 = new Coin(cX, cY, cZ);
+            wallArray[i] = w1;
+            coinArray[i] = c1;
+            scene.add(wallArray[i].wall);
+            scene.add(coinArray[i].coin);
+            wX = wX - 1000;
+            cX = cX - 1000;
+
+        }
+
+        //this function is not being used. it was going to be used for a ramp but i decided not to
+        function drawRamp(posX) {
+
+
+            var radius = 160;
+            var height = 100;
+
+
+            var geometry = new THREE.CylinderGeometry(15, radius, height, 4, 60)
+            var material = new THREE.MeshLambertMaterial({ color: "blue" });
+            var ramp = new THREE.Mesh(geometry, material);
+
+            ramp.position.x = posX;
+            ramp.position.z = 60;
+            ramp.rotation.y = (Math.PI * .25)
+            ramp.castShadow = true;
+            // scene.add(ramp);
+            return ramp;
+
+        }
+
+        pPosX = -100
+        for (i = 0; i < 1000; i = i + 500) {
+            r1 = drawRamp(pPosX)
+
+            pPosX = pPosX - 1000;
+        }
+        console.log(pPosX);
+
+
+
+        renderMap(cameraWidth, cameraHeight * 2);
+        //this function creates the "map" or plane
+        function renderMap(mapWidth, mapHeight) {
+
+            const planeGeo = new THREE.PlaneBufferGeometry(100000, 100000);
+            const planeMat = new THREE.MeshLambertMaterial({ color: "red" });
+            const plane = new THREE.Mesh(planeGeo, planeMat);
+            planeGeo.rotateX(-Math.PI * 0.5);
+            plane.position.y = -10
+            //  planeGeo.rotation.y = -Math.PI / 1;
+
+            planeGeo.rotateY(45)
+            console.log(mapWidth)
+            console.log(mapHeight)
+            console.log(car.position.z)
+            console.log(car.position.x)
+            console.log(car.position.y)
+
+            console.log(planeGeo.y)
+            //car.position.x = mapWidth/2
+            car.rotateY(Math.PI * 1)
+            // car.position.x= -100
+            car.position.y = 5
+            console.log(car.rotation.y * Math.PI)
+            scene.add(plane);
+        }
+        renderer.render(scene, camera);
+
+        console.log(coinArray[0].coin.position.x)
+        var coinSpin = 0;
+        var update = 0;
+
+        var id = null;
+        function repeatme() {
+            //updates the camera position to follow the car along the road
+            camera.position.set(3000 + car.position.x, 400, 800);
+            score++;
+            //updates the html so that the score is shown
+            element.innerHTML = ("Score: " + score)
+            //moves the car by 5 through every frame
+            car.position.x = car.position.x - 5;
+            //calls function to detect colision
+            detectColision();
+            //calls function to see if the game should end or not
+            endGame();
+           
+           //rotates the coins
+           rotateCoin(coinSpin);
+           //makes an animation
+            id = window.requestAnimationFrame(repeatme);
+            renderer.render(scene, camera);
+            //if the car collides with a wall. update the html
+            if (detectColision() == 1) {
+                element.innerHTML = ("GAME OVER! Score: " + score + "\nPress Space to restart");
+            }
+            //if end game says the game is over, stop the animation
+            if (endGame() == 1) {
+                cancelAnimationFrame(id);
+            }
+
+        }
+
+        repeatme();
+        //      rotateCoin();
+        i = 0;
+
+        function endGame() {
+            //if car passes a certain position, you win and game ends
+            if (car.position.x <= -50000) {
+
+                element.innerHTML = ("Congrats you win! Score: " + score + "\nPress Space to restart");
+                return 1;
+            }
+        }
+        function detectColision() {
+            var side = 0; //wall on left
+            var addScore = false; //decides whether to add score or not
+            //if car passes the current closest wall. iterate i
+            if (car.position.x < wallArray[i].wall.position.x) {
+                i++;
+            }
+            //tells the function which side the wall is on
+            //right
+            if (wallArray[i].wall.position.z < 0) {
+                side = 1;
+
+                // console.log("Wall position on right")
+            }   //middle
+            else if (wallArray[i].wall.position.z == 0) {
+                side = 2;
+
+             //   console.log("Wall position on middle")
+            }
+
+            //determines whether the car passes through the coin or not
+            if ((car.position.x <= coinArray[j].coin.position.x + 30
+                && car.position.x >= coinArray[j].coin.position.x - 30)
+                && (car.position.z <= coinArray[j].coin.position.z + 35
+                    && car.position.z >= coinArray[j].coin.position.z - 35)) {
+                console.log("j: " + j)
+                addScore = true;
+                //removes the current coin from scene if the car passes through it
+                scene.remove(coinArray[j].coin)
+                j++;
+            }
+            //looks at the next coin in the game
+            else if ((car.position.x <= coinArray[j].coin.position.x)) {
+                j++;
+            }
+            //adds points to the score if the car passes through a coin
+            if (addScore == true) {
+                console.log("point")
+                score = score + 500;
+
+                addScore == false;
+            }
+
+
+            //determine which wall it is next likely to hit
+            if (car.position.x < wallArray[i].wall.position.x + 30 && side == 1
+                && (car.position.z < -45)) {
+                //if car hits the right wall then cancel animation frame/ end game
+                console.log("Right WAll")
+                cancelAnimationFrame(id);
+                return 1;
+            }
+            if (car.position.x < wallArray[i].wall.position.x + 30 && side == 0
+                && car.position.z > 45) {
+                //car hitting left wall
+                console.log("left wall")
+                cancelAnimationFrame(id);
+                return 1;
+
+            }
+            if (car.position.z < 75 && car.position.z > -75
+                && side == 2 &&
+                (car.position.x < wallArray[i].wall.position.x + 30)) {
+                //car hitting middle wall
+                console.log("middle wall")
+                cancelAnimationFrame(id);
+                return 1;
+            }
+
+
+
+
+        }
+
+        var rotC = 0;
+        var k = 0;
+        function rotateCoin(cS) {
+            //rotates the current coin and the 2 ahead of it
+            rotC += 0.05;
+
+            coinArray[k].coin.rotation.z = (Math.PI * rotC);
+            coinArray[k + 1].coin.rotation.z = (Math.PI * rotC);
+            coinArray[k + 2].coin.rotation.z = (Math.PI * rotC);
+
+            //if car is a certain distance away from coin. iterate k
+            if (car.position.x < coinArray[k].coin.position.x - 1000) {
+                k++;
+            }
+            return cS;
+        }
+
+
+        //keypresses with jQuery
+        $(document.body).on('keydown', function (e) {
+            console.log(e.which);
+            switch (e.which) {
+                // key code for left arrow
+                case 37:
+                    console.log('left arrow key pressed!');
+                     //stops car from driving off the road on the left side
+                    if(car.position.z <160){
+                    car.position.z = car.position.z + 5;
+                    }
+                    console.log("z: " + car.position.z)
+
+                    break;
+                //key code for right arrow
+                case 39:
+                    console.log('right arrow pressed')
+                    //stops car from driving off the road on the right side
+                        if(car.position.z > -140){
+                        car.position.z = car.position.z - 5;
+                        }
+                    console.log("z: " + car.position.z)
+                    break;
+
+                case 38:
+                    //key code for up arrow. testing purposes only
+                    console.log('Up arrow pressed. x pos: ' + car.position.x)
+                  //  car.position.x = car.position.x - 100;
+
+                    break;
+
+                case 32:
+                    //key code for the space bar. restarts game
+                    console.log("Space Pressed")
+                    car.position.x = 0;
+                    i = 0;
+                    j = 0;
+                    k = 0;
+                    score = 0;
+                    element.innerHTML = ("Score: " + score)
+                    
+                    repeatme();
+
+            }
+        });
+
+    </script>
+
+</body>

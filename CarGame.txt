@@ -1,0 +1,16 @@
+https://www.freecodecamp.org/news/three-js-tutorial/
+
+^^^ I used this website to help create the car that was used in my project.
+It also gave me tips on how to set up the camera
+
+all of the other elements implemented in the game were thought up by myself or I used
+information that I learned from lectures and labs.
+
+The game is a car driving game where you avoid walls and collect coins.
+the coins add to your score, colliding with the walls ends the game.
+
+You can also complete the game once you have been driving long enough.
+It will then show you your score and prompt you to restart the game.
+
+I recommend not playing this game in full screen. It zooms in on the car too much
+
